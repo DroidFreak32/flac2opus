@@ -12,9 +12,9 @@ use Parallel::ForkManager;
 
 # Process cmdline options
 my (@sources, $dest, $help);
-my $bitrate = 64;
+my $bitrate = 192;
 my $tmpdir = '/tmp';
-my $processes = 6;
+my $processes = 8;
 GetOptions ("s|sources=s{,}" => \@sources,
             "d|dest=s"       => \$dest,
             "b|bitrate=s"    => \$bitrate,
@@ -49,14 +49,15 @@ for my $src (@src_files) {
         say "Copying Album Art: $srcdirs[-2] - $srcdirs[-1]";
         system "cp \"$src\" \"$opusdir\"";
     } else {
-        my $opusfile =  "$basename.opus";
-        my @meta = `metaflac --show-tag=artist --show-tag=title "$src"`;
+        my $opusfile =  "$basename.ogg";
+        my @meta = `metaflac --show-tag=title --show-tag=artist --show-tag=album  --show-tag=genre --show-tag=date "$src"`;
         chomp @meta;
         map {s/\"/\\\"/g} @meta; # escape " in any metadata
         map {s/(\w+)=(.*)/\L--$1\E="$2"/} @meta; # \L makes the characters lower case until \E, which ends case conversion
         say "Encoding $basename";
-        my $command = "/usr/bin/flac -scd \"$src\" | /usr/bin/opusenc --quiet --bitrate $bitrate " . join(' ', @meta ) . " - \"$tmpdir/$opusfile\"";
+        my $command = "/usr/bin/opusenc --vbr --bitrate $bitrate  \"$src\" \"$tmpdir/$opusfile\"";
         system $command;
+        # say "$command \n";
         move ("$tmpdir/$opusfile", $opusdir);
     }
     $pm->finish; # do the exit in the child process
@@ -86,6 +87,8 @@ sub find_files {
         next if ($file eq '.' or $file eq '..');
         my $full_path = "$path/$file";
         if ($file eq 'cover.jpg') {
+            $cover = $full_path;
+        } elsif ($file eq 'folder.jpg') {
             $cover = $full_path;
         } elsif (-d $full_path) {
             push (@files, find_files($full_path));
